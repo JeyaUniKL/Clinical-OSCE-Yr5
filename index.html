@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pediatric OSCE - Nephrotic Syndrome (V2)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #dbeafe;
+      --bg: #f1f5f9;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #cbd5e1;
+      --accent-red: #ef4444;
+      --accent-green: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
+    
+    .container {
+      width: 100%;
+      max-width: 950px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 94vh;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 10px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    .header-controls { display: flex; gap: 8px; align-items: center; }
+    
+    /* API KEY BAR */
+    .key-wrapper { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.12); padding: 4px 8px; border-radius: 6px; }
+    .key-wrapper input {
+      background: white;
+      border: 1px solid transparent;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      width: 170px;
+      color: var(--text);
+    }
+    .key-wrapper input.need-key { border: 2px solid var(--accent-red); animation: shake 0.3s; }
+    
+    .timer-badge { background: rgba(255,255,255,0.22); padding: 5px 12px; border-radius: 18px; font-weight: bold; font-size: 1.05rem; letter-spacing: 1px; }
+
+    /* BUTTONS */
+    button { padding: 8px 14px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.15s; font-size: 0.88rem; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-success { background: var(--accent-green); color: white; padding: 9px 18px; font-size: 0.92rem; }
+    .btn-success:hover { opacity: 0.9; }
+    .btn-danger { background: var(--accent-red); color: white; }
+    .btn-danger:hover { opacity: 0.9; }
+    .btn-save-key { background: #3b82f6; color: white; padding: 5px 10px; font-size: 0.8rem; }
+    
+    /* TOP PANEL: INSTRUCTIONS OR MARK SHEET */
+    .top-panel {
+      padding: 14px 18px;
+      background: #f8fafc;
+      border-bottom: 2px solid var(--border);
+      flex-shrink: 0;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .instruction-card h2 { font-size: 1rem; color: var(--primary); margin-bottom: 4px; }
+    .instruction-card p { font-size: 0.87rem; line-height: 1.45; color: #334155; margin-bottom: 6px; }
+    .instruction-card ul { margin-left: 18px; font-size: 0.85rem; color: #334155; line-height: 1.4; margin-bottom: 8px; }
+    .start-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+    /* EVALUATION REPORT VIEW */
+    .evaluation-report {
+      background: #ffffff;
+      border-left: 4px solid var(--primary);
+      padding: 14px;
+      white-space: pre-wrap;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #1e293b;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.03);
+    }
+
+    /* CHAT AREA */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      padding: 14px 18px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    .transcript-box {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .msg { max-width: 82%; padding: 9px 13px; border-radius: 12px; font-size: 0.92rem; line-height: 1.45; }
+    .msg-doctor { align-self: flex-end; background: var(--primary-light); color: var(--primary); border-bottom-right-radius: 2px; }
+    .msg-mother { align-self: flex-start; background: #e2e8f0; color: var(--text); border-bottom-left-radius: 2px; }
+    .msg-system { align-self: center; background: #e2e8f0; color: #475569; font-size: 0.82rem; text-align: center; border-radius: 20px; padding: 5px 14px; }
+
+    /* INPUT BAR */
+    .input-bar { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+    .input-bar textarea {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      resize: none;
+      height: 48px;
+      font-size: 0.92rem;
+      outline: none;
+    }
+    .input-bar textarea:focus { border-color: var(--primary); }
+    .btn-mic { background: #3b82f6; color: white; min-width: 105px; height: 48px; display: flex; align-items: center; justify-content: center; }
+    .btn-mic.recording { background: var(--accent-red); animation: pulse 1s infinite; }
+    .status-text { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- TOP HEADER -->
+  <header>
+    <h1>Pediatric OSCE: Nephrotic Syndrome (V2)</h1>
+    <div class="header-controls">
+      <div class="key-wrapper">
+        <input type="password" id="api-key-input" placeholder="Paste Gemini Key (AS.CKJFJ...)">
+        <button class="btn-save-key" onclick="saveKeyManually()">Save</button>
+      </div>
+      <button class="btn-danger" id="btn-end" onclick="endStation()">End Station</button>
+      <div class="timer-badge" id="timer-display">10:00</div>
+    </div>
+  </header>
+
+  <!-- TOP PANEL: Instructions -> Transforms into Examiner Mark Sheet at End -->
+  <div class="top-panel" id="top-panel">
+    <div class="instruction-card" id="instruction-content">
+      <h2>Candidate Instructions</h2>
+      <p><strong>Scenario:</strong> You are a junior doctor in the pediatric ward. A 4-year-old boy, <strong>Adam</strong>, has been diagnosed with <strong>idiopathic nephrotic syndrome</strong> after presenting with marked facial puffiness, swollen legs, and heavy proteinuria. Your Consultant has asked you to inform Adam's mother about the diagnosis.</p>
+      <p><strong>Your Tasks:</strong> Introduce yourself, explain the diagnosis in lay terms, counsel on treatment, side effects, precautions (infections/chickenpox), and prognosis.</p>
+      <div class="start-bar">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Puan Siti is seated quietly with Adam, waiting for you to begin.</span>
+        <button class="btn-success" id="btn-start" onclick="startStation()">▶ Start Consultation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="chat-container">
+    <div class="transcript-box" id="transcript">
+      <div class="msg msg-system">
+        Puan Siti is seated quietly with Adam. Click "Start Consultation" or type/speak your introduction below.
+      </div>
+    </div>
+
+    <!-- Active Input Bar -->
+    <div class="input-bar">
+      <button class="btn-mic" id="btn-mic" onclick="toggleMic()">🎤 Speak</button>
+      <textarea id="doctor-input" placeholder="Type or click 'Speak' to introduce yourself... (Press Enter to Send)" onkeydown="handleKeyPress(event)"></textarea>
+      <button class="btn-primary" id="btn-send" onclick="sendMessage()" style="height:48px;">Send</button>
+    </div>
+    <div class="status-text" id="status-text">Ready. Enter your API key above if not yet saved, then begin.</div>
+  </div>
+</div>
+
+<script>
+  let apiKey = localStorage.getItem('gemini_api_key') || '';
+  // V2 FIX: Locked strictly to 3.8-flash (no invalid fallbacks)
+  const activeModel = 'gemini-3.8-flash';
+  let consultationSeconds = 600;
+  let timerInterval = null;
+  let hasStarted = false;
+  let isRecording = false;
+  let recognition = null;
+  let conversationHistory = [];
+  let accumulatedSpeech = '';
+
+  // V2 FIX: Natural speech phrasing, strict ban on overusing "doctor", no leading questions
+  const motherSystemPrompt = `
+You are Puan Siti, the mother of 4-year-old Adam who has just been admitted with swollen eyes, puffy legs, and heavy proteinuria, diagnosed with idiopathic nephrotic syndrome.
+
+BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
+1. NATURAL SPEECH (DO NOT OVERUSE "DOCTOR"):
+   - Do NOT say the word "doctor" in every sentence or response. A real mother does not repeat the title over and over.
+   - Speak naturally as a concerned parent. Use the word "doctor" only rarely or not at all.
+
+2. DO NOT PROMPT THE CANDIDATE:
+   - You are an anxious parent, NOT an examiner.
+   - NEVER ask leading questions that prompt the student what to say next.
+   - DO NOT ask: "What medicine will he take?", "What are the side effects?", "Is it dangerous?", "What about blood clots or infections?", or "Will he need tests?".
+   - The candidate must have the clinical knowledge to volunteer all explanations, treatment plans, side effects, and precautions independently.
+
+3. MOSTLY RECEPTIVE & LISTENING:
+   - In most turns, simply acknowledge what was said and express natural parental emotion.
+   - Keep answers short (1 to 2 brief sentences).
+   - Examples of natural responses:
+     * "I see..."
+     * "Okay, that makes sense. Please go on."
+     * "Oh dear, poor Adam... I'm listening."
+     * "I understand. What do we do next?"
+
+4. WHEN YOU ARE ALLOWED TO ASK A QUESTION:
+   - JARGON CHECK: If the doctor uses unexplained medical jargon (e.g., "podocytes", "proteinuria", "hypoalbuminemia", "edema", "prednisolone" without explaining it is a steroid), say: "I don't understand those medical words. What does that mean in simple terms?"
+   - ONLY WHEN EXPLICITLY INVITED: If the doctor asks "Do you have any questions for me?" or "Is there anything you are worried about?":
+     * Worry A (if medication was discussed): "Will Adam have to take these medications forever? Will he become dependent on them, or will his kidneys heal?"
+     * Worry B (if home care or daily life was discussed): "Can he still go to kindergarten and play with other children? What if someone at school has chickenpox?"
+     * If neither applies, say: "I think I understand what you've explained so far."
+`;
+
+  window.onload = () => {
+    const keyInput = document.getElementById('api-key-input');
+    if (apiKey) {
+      keyInput.value = apiKey;
+      document.getElementById('status-text').innerText = "API Key loaded. Ready to begin.";
+    }
+    setupSpeechRecognition();
+  };
+
+  function saveKeyManually() {
+    const keyInput = document.getElementById('api-key-input');
+    const val = keyInput.value.trim();
+    if (!val) {
+      keyInput.classList.add('need-key');
+      setTimeout(() => keyInput.classList.remove('need-key'), 1000);
+      return;
+    }
+    apiKey = val;
+    localStorage.setItem('gemini_api_key', val);
+    keyInput.classList.remove('need-key');
+    document.getElementById('status-text').innerText = "API Key saved successfully.";
+  }
+
+  function ensureKey() {
+    apiKey = document.getElementById('api-key-input').value.trim();
+    if (!apiKey) {
+      const keyInput = document.getElementById('api-key-input');
+      keyInput.classList.add('need-key');
+      keyInput.focus();
+      document.getElementById('status-text').innerText = "Please paste your Gemini API Key in the box above first.";
+      setTimeout(() => keyInput.classList.remove('need-key'), 1200);
+      return false;
+    }
+    localStorage.setItem('gemini_api_key', apiKey);
+    return true;
+  }
+
+  function startStation() {
+    if (!ensureKey()) return;
+
+    if (!hasStarted) {
+      hasStarted = true;
+      document.getElementById('btn-start').innerText = "Consultation Active";
+      document.getElementById('btn-start').style.background = "#64748b";
+      document.getElementById('status-text').innerText = "10-minute timer running. Introduce yourself to Puan Siti.";
+
+      timerInterval = setInterval(() => {
+        consultationSeconds--;
+        let mins = Math.floor(consultationSeconds / 60);
+        let secs = consultationSeconds % 60;
+        document.getElementById('timer-display').innerText = 
+          `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+        if (consultationSeconds <= 0) {
+          endStation();
+        }
+      }, 1000);
+    }
+    document.getElementById('doctor-input').focus();
+  }
+
+  function handleKeyPress(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function setupSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      document.getElementById('status-text').innerText = "Speech-to-text not supported in this browser. Please type.";
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      isRecording = true;
+      const btn = document.getElementById('btn-mic');
+      btn.classList.add('recording');
+      btn.innerText = "⏹ Stop Mic";
+      document.getElementById('status-text').innerText = "Listening... Speak at your own pace.";
+    };
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          accumulatedSpeech += event.results[i][0].transcript + ' ';
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      document.getElementById('doctor-input').value = accumulatedSpeech + interim;
+    };
+
+    recognition.onend = () => {
+      if (isRecording) {
+        try { recognition.start(); } catch(e) {}
+      } else {
+        stopMicUI();
+      }
+    };
+  }
+
+  function toggleMic() {
+    if (!recognition) {
+      alert("Microphone recognition requires Google Chrome or Microsoft Edge.");
+      return;
+    }
+    if (isRecording) {
+      isRecording = false;
+      recognition.stop();
+      stopMicUI();
+    } else {
+      accumulatedSpeech = document.getElementById('doctor-input').value;
+      if (accumulatedSpeech && !accumulatedSpeech.endsWith(' ')) accumulatedSpeech += ' ';
+      try {
+        recognition.start();
+      } catch(e) {
+        isRecording = false;
+      }
+    }
+  }
+
+  function stopMicUI() {
+    isRecording = false;
+    const btn = document.getElementById('btn-mic');
+    btn.classList.remove('recording');
+    btn.innerText = "🎤 Speak";
+    document.getElementById('status-text').innerText = "Mic stopped. Click Send or press Enter.";
+  }
+
+  function speakMother(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.pitch = 1.0;
+      utt.rate = 0.95;
+      window.speechSynthesis.speak(utt);
+    }
+  }
+
+  function sendMessage() {
+    if (!ensureKey()) return;
+    if (!hasStarted) startStation();
+
+    if (isRecording) toggleMic();
+
+    const input = document.getElementById('doctor-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    appendMsg("Doctor", text);
+    conversationHistory.push({ role: "user", parts: [{ text: text }] });
+    input.value = '';
+    accumulatedSpeech = '';
+
+    callGeminiMother();
+  }
+
+  function appendMsg(sender, text) {
+    const box = document.getElementById('transcript');
+    const msg = document.createElement('div');
+    msg.className = `msg ${sender === 'Doctor' ? 'msg-doctor' : sender === 'System' ? 'msg-system' : 'msg-mother'}`;
+    msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    box.appendChild(msg);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // V2 FIX: Robust API Call with Free-Tier Throttle Retry (Locked to 3.8-flash)
+  async function callGeminiMother() {
+    document.getElementById('status-text').innerText = "Puan Siti is listening...";
+    
+    let contents = [
+      { role: "user", parts: [{ text: motherSystemPrompt }] },
+      { role: "model", parts: [{ text: "Understood. I am Puan Siti. I will reply in 1-2 brief sentences, speak naturally without overusing the word doctor, and NOT ask leading questions." }] },
+      ...conversationHistory
+    ];
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+
+    try {
+      let response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: contents })
+      });
+
+      // Free Tier Handling: If throttled (429), wait 1.5s and retry ONCE on the same 3.8 model
+      if (response.status === 429) {
+        document.getElementById('status-text').innerText = "Free tier busy, retrying in a moment...";
+        await new Promise(r => setTimeout(r, 1500));
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: contents })
+        });
+      }
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || response.statusText);
+
+      const reply = data.candidates[0].content.parts[0].text;
+      conversationHistory.push({ role: "model", parts: [{ text: reply }] });
+      appendMsg("Mother", reply);
+      speakMother(reply);
+      document.getElementById('status-text').innerText = "Your turn. Continue the consultation.";
+    } catch (err) {
+      console.error(err);
+      appendMsg("System", `Connection Error: ${err.message}`);
+      document.getElementById('status-text').innerText = "Connection error. Please try again in a moment.";
+    }
+  }
+
+  function endStation() {
+    if (!hasStarted && conversationHistory.length === 0) {
+      alert("Consultation has not started yet.");
+      return;
+    }
+
+    clearInterval(timerInterval);
+    if (isRecording && recognition) recognition.stop();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    const topPanel = document.getElementById('top-panel');
+    topPanel.style.maxHeight = "360px";
+    topPanel.innerHTML = `
+      <div class="evaluation-report" id="eval-box">
+        <strong>Station Concluded.</strong> The Examiner is reviewing the consultation transcript against the 20-mark rubric. Please wait...
+      </div>
+    `;
+
+    document.getElementById('status-text').innerText = "Generating official mark sheet...";
+    generateExaminerFeedback();
+  }
+
+  async function generateExaminerFeedback() {
+    const transcriptText = conversationHistory.map(m => `${m.role === 'user' ? 'Doctor' : 'Mother'}: ${m.parts[0].text}`).join('\n');
+
+    const examinerPrompt = `
+You are the pediatric OSCE Examiner marking a junior doctor on "Counselling a parent of a child newly diagnosed with idiopathic nephrotic syndrome".
+Marking criteria (Total 20 marks):
+- Communication Skills (Empathy, clarity, lay language, rapport, no jargon) (2 marks)
+- Explanation of Nephrotic Syndrome (leaking protein, kidney filters) (2 marks)
+- Symptoms and signs (body swelling, frothy urine) (2 marks)
+- Implications & Complications (infection risk, blood clots, relapses) (2 marks)
+- Treatment Plan (Daily oral prednisolone/steroids, tapering, adherence) (2 marks)
+- Side Effects of Steroids (appetite, weight, mood, infection risk, growth delay) (2 marks)
+- Precautions (NO live vaccines, avoid chickenpox/measles, seek prompt advice) (2 marks)
+- Prognosis (Steroid-sensitive, relapses common but manageable) (2 marks)
+- Addressing mother's concerns accurately (4 marks)
+
+TRANSCRIPT:
+${transcriptText}
+
+Output the evaluation formatted cleanly:
+PROVISIONAL OSCE MARK SHEET
+Global Rating: [Distinction (18-20) / Clear Pass (14-17) / Borderline (10-13) / Fail (<10)]
+Total Score: [X] / 20
+
+Breakdown:
+1. Communication & Empathy: [X/2]
+2. Explanation of Nephrotic Syndrome: [X/2]
+3. Symptoms and Signs: [X/2]
+4. Complications & Infection Risk: [X/2]
+5. Treatment Plan & Adherence: [X/2]
+6. Steroid Side Effects: [X/2]
+7. Precautions (Vaccines / Chickenpox): [X/2]
+8. Prognosis & Relapses: [X/2]
+9. Addressing Mother's Concerns: [X/4]
+
+Examiner Feedback:
+- Strengths:
+- Areas for Improvement:
+`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+
+    try {
+      let response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: examinerPrompt }] }] })
+      });
+
+      if (response.status === 429) {
+        await new Promise(r => setTimeout(r, 1500));
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: examinerPrompt }] }] })
+        });
+      }
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || response.statusText);
+
+      document.getElementById('eval-box').innerText = data.candidates[0].content.parts[0].text;
+      document.getElementById('status-text').innerText = "Mark sheet generated successfully.";
+    } catch (err) {
+      document.getElementById('eval-box').innerText = `Error generating evaluation report: ${err.message}`;
+    }
+  }
+</script>
+
+</body>
+</html>
