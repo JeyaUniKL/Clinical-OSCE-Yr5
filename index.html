@@ -59,7 +59,7 @@
       width: 170px;
       color: var(--text);
     }
-    .key-wrapper input.need-key { border: 2px solid var(--accent-red); animation: shake 0.3s; }
+    .key-wrapper input.need-field { border: 2px solid var(--accent-red); animation: shake 0.3s; }
     
     .timer-badge { background: rgba(255,255,255,0.22); padding: 5px 12px; border-radius: 18px; font-weight: bold; font-size: 1.05rem; letter-spacing: 1px; }
 
@@ -79,13 +79,48 @@
       background: #f8fafc;
       border-bottom: 2px solid var(--border);
       flex-shrink: 0;
-      max-height: 240px;
+      max-height: 280px;
       overflow-y: auto;
     }
     .instruction-card h2 { font-size: 1rem; color: var(--primary); margin-bottom: 4px; }
     .instruction-card p { font-size: 0.87rem; line-height: 1.45; color: #334155; margin-bottom: 6px; }
-    .instruction-card ul { margin-left: 18px; font-size: 0.85rem; color: #334155; line-height: 1.4; margin-bottom: 8px; }
-    .start-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .start-bar { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-top: 10px; 
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .student-entry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .student-entry label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .student-entry input {
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.88rem;
+      width: 240px;
+      outline: none;
+    }
+    .student-entry input:focus {
+      border-color: var(--primary);
+    }
+    .student-entry input.need-field {
+      border: 2px solid var(--accent-red);
+      animation: shake 0.3s;
+      background: #fef2f2;
+    }
 
     /* EVALUATION REPORT VIEW */
     .evaluation-report {
@@ -167,8 +202,12 @@
       <h2>Candidate Instructions</h2>
       <p><strong>Scenario:</strong> You are a junior doctor in the pediatric ward. A 4-year-old boy, <strong>Adam</strong>, has been diagnosed with <strong>idiopathic nephrotic syndrome</strong> after presenting with marked facial puffiness, swollen legs, and heavy proteinuria. Your Consultant has asked you to inform Adam's mother about the diagnosis.</p>
       <p><strong>Your Tasks:</strong> Introduce yourself, explain the diagnosis in lay terms, counsel on treatment, side effects, precautions (infections/chickenpox), and prognosis.</p>
+      
       <div class="start-bar">
-        <span style="font-size: 0.8rem; color: var(--text-muted);">Puan Siti is seated quietly with Adam, waiting for you to begin.</span>
+        <div class="student-entry">
+          <label for="candidate-id">Student Name / ID:</label>
+          <input type="text" id="candidate-id" placeholder="e.g. Dr. Sarah / M12345" oninput="saveCandidateId()">
+        </div>
         <button class="btn-success" id="btn-start" onclick="startStation()">▶ Start Consultation</button>
       </div>
     </div>
@@ -178,7 +217,7 @@
   <div class="chat-container">
     <div class="transcript-box" id="transcript">
       <div class="msg msg-system">
-        Puan Siti is seated quietly with Adam. Click "Start Consultation" or type/speak your introduction below.
+        Puan Siti is seated quietly with Adam. Enter your Name/ID above and click "Start Consultation".
       </div>
     </div>
 
@@ -188,12 +227,16 @@
       <textarea id="doctor-input" placeholder="Type or click 'Speak' to introduce yourself... (Press Enter to Send)" onkeydown="handleKeyPress(event)"></textarea>
       <button class="btn-primary" id="btn-send" onclick="sendMessage()" style="height:48px;">Send</button>
     </div>
-    <div class="status-text" id="status-text">Ready. Enter your API key above if not yet saved, then begin.</div>
+    <div class="status-text" id="status-text">Ready. Please enter your Student Name/ID and Gemini Key to begin.</div>
   </div>
 </div>
 
 <script>
+  // YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+  const GOOGLE_SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwmDpPXF42ZCP2pDGpuZbqAlLhdk0Ujk-hmEeHtzNVVXyU4QxGMCTnyLrn__rphX7BJ/exec';
+
   let apiKey = localStorage.getItem('gemini_api_key') || '';
+  let storedCandidateId = localStorage.getItem('osce_candidate_id') || '';
   let activeModel = 'gemini-3.8-flash';
   let consultationSeconds = 600;
   let timerInterval = null;
@@ -203,7 +246,6 @@
   let conversationHistory = [];
   let accumulatedSpeech = '';
 
-  // CLINICAL OSCE MOTHER PERSONA - RECEPTIVE, NO LEADING QUESTIONS
   const motherSystemPrompt = `
 You are Puan Siti, the mother of 4-year-old Adam who has just been admitted with swollen eyes, puffy legs, and heavy proteinuria, diagnosed with idiopathic nephrotic syndrome.
 
@@ -212,10 +254,10 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
    - You are an anxious parent, NOT an examiner.
    - NEVER ask leading questions that prompt the student what to say next.
    - DO NOT ask: "What medicine will he take?", "What are the side effects?", "Is it dangerous?", "What about blood clots or infections?", or "Will he need tests?".
-   - The candidate must have the clinical knowledge to volunteer all explanations, treatment plans, side effects, and precautions independently.
+   - The candidate must volunteer all explanations, treatment plans, side effects, and precautions independently.
 
 2. MOSTLY RECEPTIVE & LISTENING:
-   - In most turns, simply acknowledge what the doctor said and express natural parental emotion.
+   - In most turns, acknowledge what the doctor said and express natural parental emotion.
    - Keep answers short (1 to 2 brief sentences).
    - Examples of natural responses:
      * "I see, doctor..."
@@ -233,48 +275,78 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
 
   window.onload = () => {
     const keyInput = document.getElementById('api-key-input');
-    if (apiKey) {
-      keyInput.value = apiKey;
-      document.getElementById('status-text').innerText = "API Key loaded. Ready to begin.";
-    }
+    if (apiKey) keyInput.value = apiKey;
+
+    const idInput = document.getElementById('candidate-id');
+    if (storedCandidateId) idInput.value = storedCandidateId;
+
     setupSpeechRecognition();
   };
+
+  function saveCandidateId() {
+    const val = document.getElementById('candidate-id').value.trim();
+    localStorage.setItem('osce_candidate_id', val);
+  }
 
   function saveKeyManually() {
     const keyInput = document.getElementById('api-key-input');
     const val = keyInput.value.trim();
     if (!val) {
-      keyInput.classList.add('need-key');
-      setTimeout(() => keyInput.classList.remove('need-key'), 1000);
+      keyInput.classList.add('need-field');
+      setTimeout(() => keyInput.classList.remove('need-field'), 1000);
       return;
     }
     apiKey = val;
     localStorage.setItem('gemini_api_key', val);
-    keyInput.classList.remove('need-key');
+    keyInput.classList.remove('need-field');
     document.getElementById('status-text').innerText = "API Key saved successfully.";
   }
 
-  function ensureKey() {
+  function validatePrerequisites() {
+    let valid = true;
+
+    // Check Student Name / ID
+    const idInput = document.getElementById('candidate-id');
+    const candId = idInput ? idInput.value.trim() : localStorage.getItem('osce_candidate_id') || '';
+    if (!candId) {
+      if (idInput) {
+        idInput.classList.add('need-field');
+        idInput.focus();
+        setTimeout(() => idInput.classList.remove('need-field'), 1500);
+      }
+      document.getElementById('status-text').innerText = "⚠️ Please enter your Student Name / ID before beginning.";
+      valid = false;
+    } else {
+      localStorage.setItem('osce_candidate_id', candId);
+    }
+
+    // Check API Key
     apiKey = document.getElementById('api-key-input').value.trim();
     if (!apiKey) {
       const keyInput = document.getElementById('api-key-input');
-      keyInput.classList.add('need-key');
-      keyInput.focus();
-      document.getElementById('status-text').innerText = "Please paste your Gemini API Key in the box above first.";
-      setTimeout(() => keyInput.classList.remove('need-key'), 1200);
-      return false;
+      keyInput.classList.add('need-field');
+      if (valid) keyInput.focus();
+      setTimeout(() => keyInput.classList.remove('need-field'), 1500);
+      document.getElementById('status-text').innerText = "⚠️ Please paste your Gemini API Key in the top right box.";
+      valid = false;
+    } else {
+      localStorage.setItem('gemini_api_key', apiKey);
     }
-    localStorage.setItem('gemini_api_key', apiKey);
-    return true;
+
+    return valid;
   }
 
   function startStation() {
-    if (!ensureKey()) return;
+    if (!validatePrerequisites()) return;
 
     if (!hasStarted) {
       hasStarted = true;
-      document.getElementById('btn-start').innerText = "Consultation Active";
-      document.getElementById('btn-start').style.background = "#64748b";
+      const startBtn = document.getElementById('btn-start');
+      if (startBtn) {
+        startBtn.innerText = "Consultation Active";
+        startBtn.style.background = "#64748b";
+      }
+      document.getElementById('candidate-id').disabled = true;
       document.getElementById('status-text').innerText = "10-minute timer running. Introduce yourself to Puan Siti.";
 
       timerInterval = setInterval(() => {
@@ -316,7 +388,7 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
       const btn = document.getElementById('btn-mic');
       btn.classList.add('recording');
       btn.innerText = "⏹ Stop Mic";
-      document.getElementById('status-text').innerText = "Listening... Speak at your own pace.";
+      document.getElementById('status-text').innerText = "Listening... Speak clearly.";
     };
 
     recognition.onresult = (event) => {
@@ -379,7 +451,7 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
   }
 
   function sendMessage() {
-    if (!ensureKey()) return;
+    if (!validatePrerequisites()) return;
     if (!hasStarted) startStation();
 
     if (isRecording) toggleMic();
@@ -421,7 +493,6 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
         body: JSON.stringify({ contents: contents })
       });
 
-      // Fallback to 3.1 if 3.8 naming differs
       if (!response.ok && activeModel === 'gemini-3.8-flash') {
         activeModel = 'gemini-3.1-flash';
         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
@@ -456,11 +527,14 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
     if (isRecording && recognition) recognition.stop();
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
+    const candidateId = getCandidateIdentity();
+
     const topPanel = document.getElementById('top-panel');
     topPanel.style.maxHeight = "360px";
     topPanel.innerHTML = `
       <div class="evaluation-report" id="eval-box">
-        <strong>Station Concluded.</strong> The Examiner is reviewing the consultation transcript against the 20-mark rubric. Please wait...
+        <strong>Station Concluded.</strong> Candidate: <u>${candidateId}</u><br>
+        The Examiner is reviewing the consultation transcript against the 20-mark rubric. Please wait...
       </div>
     `;
 
@@ -468,11 +542,20 @@ BEHAVIORAL RULES (CRITICAL FOR EXAM INTEGRITY):
     generateExaminerFeedback();
   }
 
+  function getCandidateIdentity() {
+    const inputVal = document.getElementById('candidate-id') ? document.getElementById('candidate-id').value.trim() : '';
+    const storedVal = localStorage.getItem('osce_candidate_id') || '';
+    return inputVal || storedVal || "Unknown Candidate";
+  }
+
   async function generateExaminerFeedback() {
+    const candidateId = getCandidateIdentity();
     const transcriptText = conversationHistory.map(m => `${m.role === 'user' ? 'Doctor' : 'Mother'}: ${m.parts[0].text}`).join('\n');
 
     const examinerPrompt = `
 You are the pediatric OSCE Examiner marking a junior doctor on "Counselling a parent of a child newly diagnosed with idiopathic nephrotic syndrome".
+Candidate Identification: ${candidateId}
+
 Marking criteria (Total 20 marks):
 - Communication Skills (Empathy, clarity, lay language, rapport, no jargon) (2 marks)
 - Explanation of Nephrotic Syndrome (leaking protein, kidney filters) (2 marks)
@@ -489,6 +572,7 @@ ${transcriptText}
 
 Output the evaluation formatted cleanly:
 PROVISIONAL OSCE MARK SHEET
+Candidate: ${candidateId}
 Global Rating: [Distinction (18-20) / Clear Pass (14-17) / Borderline (10-13) / Fail (<10)]
 Total Score: [X] / 20
 
@@ -518,10 +602,48 @@ Examiner Feedback:
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || response.statusText);
 
-      document.getElementById('eval-box').innerText = data.candidates[0].content.parts[0].text;
-      document.getElementById('status-text').innerText = "Mark sheet generated successfully.";
+      const feedbackReport = data.candidates[0].content.parts[0].text;
+      document.getElementById('eval-box').innerText = feedbackReport;
+      document.getElementById('status-text').innerText = "Mark sheet generated. Uploading results to tutor sheet...";
+
+      // Upload to Google Sheet
+      await sendResultsToGoogleSheet(candidateId, transcriptText, feedbackReport);
+
     } catch (err) {
       document.getElementById('eval-box').innerText = `Error generating evaluation report: ${err.message}`;
+    }
+  }
+
+  async function sendResultsToGoogleSheet(candidateId, transcript, feedback) {
+    if (!GOOGLE_SHEET_WEBHOOK_URL) {
+      document.getElementById('status-text').innerText = "Evaluation finished (Google Sheet webhook URL not set).";
+      return;
+    }
+
+    // Extract Score and Rating cleanly
+    const scoreMatch = feedback.match(/Total Score:\s*(\d+\s*\/\s*20)/i);
+    const ratingMatch = feedback.match(/Global Rating:\s*([^\n\r]+)/i);
+    const scoreSummary = `${ratingMatch ? ratingMatch[1].trim() : ''} (${scoreMatch ? scoreMatch[1].trim() : 'N/A'})`;
+
+    const payload = {
+      timestamp: new Date().toLocaleString(),
+      candidateId: candidateId,
+      scoreSummary: scoreSummary,
+      feedback: feedback,
+      transcript: transcript
+    };
+
+    try {
+      await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      });
+      document.getElementById('status-text').innerText = `Results successfully logged to Google Sheet for candidate: ${candidateId}`;
+    } catch (e) {
+      console.warn("Could not post to Google Sheet:", e);
+      document.getElementById('status-text').innerText = "Station completed, but failed to sync to Google Sheet.";
     }
   }
 </script>
